@@ -3,17 +3,20 @@ from utilities.data import read_lines, parse_integers
 from utilities.runner import runner
 
 @runner("Day 9", "Part 1")
-def solve_part1(line: str, input_val: int):
+def solve_part1(line: str):
     """part 1 solving function"""
     computer = Computer(parse_integers(line,","))
-    computer.in_signals.append(input_val)
+    computer.in_signals.append(1)
     computer.run()
     return ",".join(map(str,computer.out_signals))
 
 @runner("Day 9", "Part 2")
 def solve_part2(line: str):
     """part 2 solving function"""
-    return 0
+    computer = Computer(parse_integers(line,","))
+    computer.in_signals.append(2)
+    computer.run()
+    return ",".join(map(str,computer.out_signals))
 
 class Computer:
     """structure for computer"""
@@ -118,11 +121,10 @@ sample2 = """1102,34915192,34915192,7,4,7,99,0""".splitlines()[0]
 sample3 = """104,1125899906842624,99""".splitlines()[0]
 
 # Part 1
-assert solve_part1(sample, 0) == "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99"
-assert solve_part1(sample2, 0) == "1219070632396864"
-assert solve_part1(sample3, 0) == "1125899906842624"
-assert solve_part1(data, 1) == "4288078517"
+assert solve_part1(sample) == "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99"
+assert solve_part1(sample2) == "1219070632396864"
+assert solve_part1(sample3) == "1125899906842624"
+assert solve_part1(data) == "4288078517"
 
 # Part 2
-assert solve_part2(sample) == 0
-assert solve_part2(data) == 0
+assert solve_part2(data) == "69256"
