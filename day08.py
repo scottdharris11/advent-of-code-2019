@@ -19,18 +19,41 @@ def solve_part1(line: str, wide: int, tall: int):
     return ones_times_twos
 
 @runner("Day 8", "Part 2")
-def solve_part2(line: str):
+def solve_part2(line: str, wide: int, tall: int):
     """part 2 solving function"""
-    return 0
+    pixels = []
+    for _ in range(tall):
+        pixels.append(['2']*wide)
+    chunk_size = wide * tall
+    for i in range(0,len(line),chunk_size):
+        chunk = line[i:i+chunk_size]
+        ri = 0
+        for r in range(0,len(chunk),wide):
+            row = line[i+r:i+r+wide]
+            for ci, col in enumerate(row):
+                if pixels[ri][ci] != '2':
+                    continue
+                if col in ['0', '1']:
+                    pixels[ri][ci] = col
+            ri += 1
+    rows = ["".join(x).replace('0',' ') for x in pixels]
+    return "\n".join(rows)
 
 # Data
 data = read_lines("input/day08/input.txt")[0]
 sample = """123456789012""".splitlines()[0]
+sample2 = """0222112222120000""".splitlines()[0]
 
 # Part 1
 assert solve_part1(sample, 3, 2) == 1
 assert solve_part1(data, 25, 6) == 1792
 
 # Part 2
-assert solve_part2(sample) == 0
-assert solve_part2(data) == 0
+assert solve_part2(sample2, 2, 2) == """ 1
+1 """
+assert solve_part2(data, 25, 6) == """1      11 1111  11  1  1 
+1       1 1    1  1 1  1 
+1       1 111  1    1111 
+1       1 1    1    1  1 
+1    1  1 1    1  1 1  1 
+1111  11  1111  11  1  1 """ #LJECH
