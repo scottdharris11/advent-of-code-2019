@@ -12,9 +12,42 @@ def solve_part1(line: str):
     return len(painter.painted_panels)
 
 @runner("Day 11", "Part 2")
-def solve_part2(lines: list[str]):
+def solve_part2(line: str):
     """part 2 solving function"""
-    return 0
+    oc = parse_integers(line, ",")
+    painter = PaintingRobot()
+    painter.painted_panels[painter.location] = 1
+    computer = Computer(oc, painter)
+    computer.run()
+
+    min_x = None
+    max_x = None
+    min_y = None
+    max_y = None
+    for l, c in painter.painted_panels.items():
+        if c == 0:
+            continue
+        x, y = l
+        if min_x is None or x < min_x:
+            min_x = x
+        if max_x is None or x > max_x:
+            max_x = x
+        if min_y is None or y < min_y:
+            min_y = y
+        if max_y is None or y > max_y:
+            max_y = y
+
+    output_lines = []
+    for y in range(min_y,max_y+1):
+        row = ""
+        for x in range(min_x,max_x+1):
+            c = painter.painted_panels.get((x,y), 0)
+            if c == 1:
+                row += "X"
+            else:
+                row += " "
+        output_lines.append(row)
+    return "\n" + "\n".join(output_lines)
 
 UP = (0,-1)
 DOWN = (0,1)
@@ -172,4 +205,10 @@ assert len(ptest.painted_panels) == 6
 assert solve_part1(data) == 2255
 
 # Part 2
-assert solve_part2(data) == 0
+assert solve_part2(data) == """
+XXX   XX  X  X XXXX XXX   XX  XXX   XX 
+X  X X  X X X  X    X  X X  X X  X X  X
+XXX  X    XX   XXX  X  X X    X  X X  X
+X  X X    X X  X    XXX  X    XXX  XXXX
+X  X X  X X X  X    X    X  X X X  X  X
+XXX   XX  X  X X    X     XX  X  X X  X"""
