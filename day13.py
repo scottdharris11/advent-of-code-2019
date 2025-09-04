@@ -6,33 +6,70 @@ from utilities.runner import runner
 def solve_part1(line: str):
     """part 1 solving function"""
     oc = parse_integers(line, ",")
-    counter = TileCounter()
-    computer = Computer(oc, counter)
+    game = Game()
+    computer = Computer(oc, game)
     computer.run()
-    return counter.tiles
+    return game.tiles
 
 @runner("Day 13", "Part 2")
-def solve_part2(lines: list[str]):
+def solve_part2(line: str):
     """part 2 solving function"""
-    return 0
+    oc = parse_integers(line, ",")
+    oc[0] = 2
+    game = Game()
+    computer = Computer(oc, game)
+    computer.run()
+    return game.score
 
-class TileCounter:
+class Game:
     """structure for painting robot"""
     def __init__(self):
         self.tiles = 0
-        self.count = 0
+        self.score = 0
+        self.output = []
+        self.paddle = (0,0)
+        self.ball = (0,0)
+        self.moving = 1
+
+    def provide_input(self):
+        """
+        provide joystick input. determine x location the ball will be at when
+        it reaches the paddle Y location based on which way it is currently moving
+        and then provide the joystick input to move the paddle to the appropriate
+        X location.
+        """
+        steps_to_bounce = abs(self.paddle[1]-self.ball[1]) - 1
+        bounce_x_loc = self.ball[0] + (steps_to_bounce * self.moving)
+        paddle_x = self.paddle[0]
+        if paddle_x < bounce_x_loc:
+            return 1
+        if paddle_x > bounce_x_loc:
+            return -1
+        return 0
 
     def accept_output(self, o: int):
         """accept output value and perform robot actions accordingly"""
-        self.count += 1
-        if self.count % 3 == 0 and o == 2:
-            self.tiles += 1
+        self.output.append(o)
+        if len(self.output) % 3 == 0:
+            if self.output[-3] == -1 and self.output[-2] == 0:
+                self.score = self.output[-1]
+                return
+            if self.output[-1] == 2:
+                self.tiles += 1
+            if self.output[-1] == 4:
+                ball_loc = (self.output[-3], self.output[-2])
+                #print(f"ball is at position: {ball_loc}")
+                self.moving = 1 if ball_loc[0] > self.ball[0] else -1
+                self.ball = ball_loc
+            if self.output[-1] == 3:
+                self.paddle = (self.output[-3], self.output[-2])
+                #print(f"paddle is at position: {self.paddle}")
 
 class Computer:
     """structure for computer"""
-    def __init__(self, op: list[int], tc: TileCounter):
+    def __init__(self, op: list[int], game: Game):
         self.op = {i:o for i, o in enumerate(op)}
-        self.counter = tc
+        self.game = game
         self.opi = 0
         self.relative_base = 0
         self.done = False
@@ -52,10 +89,10 @@ class Computer:
                 self.op[self.pvi(i+3,m3)] = self.pv(i+1,m1) * self.pv(i+2,m2)
                 i += 4
             elif opcode == 3:
-                #self.op[self.pvi(i+1,m1)] = self.painter.provide_input()
+                self.op[self.pvi(i+1,m1)] = self.game.provide_input()
                 i += 2
             elif opcode == 4:
-                self.counter.accept_output(self.pv(i+1,m1))
+                self.game.accept_output(self.pv(i+1,m1))
                 i += 2
             elif opcode == 5:
                 if self.pv(i+1,m1) != 0:
@@ -128,4 +165,4 @@ data = read_lines("input/day13/input.txt")[0]
 assert solve_part1(data) == 357
 
 # Part 2
-assert solve_part2(data) == 0
+assert solve_part2(data) == 17468
