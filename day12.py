@@ -17,8 +17,33 @@ def solve_part1(lines: list[str], steps: int):
     return total_energy
 
 @runner("Day 12", "Part 2")
-def solve_part2(lines: list[str]):
+def solve_part2(lines: list[str], steps):
     """part 2 solving function"""
+    moons = parse_moons(lines)
+    mt = 3
+    max_state = moons[mt].state()
+    moon_states = {max_state:0}
+    mss = {max_state:[0]}
+    mssc = 1
+    for s in range(steps):
+        g = [moon.gravity_impact(moons) for moon in moons]
+        for i, moon in enumerate(moons):
+            moon.apply_gravity(g[i])
+            moon.apply_velocity()
+            state = moon.state()
+            if i == mt:
+                if state in moon_states:
+                    ss = mss[state]
+                    if len(ss) + 1 > mssc:
+                        mssc += 1
+                        max_state = state
+                    ss.append(s+1)
+                    mss[state] = ss
+                    #print(f"repeat state: {state}, step: {s+1}, orig: {moon_states[state]}")
+                else:
+                    moon_states[state] = s+1
+                    mss[state] = [s+1]
+    print(f"max repeating state, {max_state}, repeated {mssc} times, {mss[max_state]}")
     return 0
 
 class Moon:
@@ -26,6 +51,13 @@ class Moon:
     def __init__(self, position: tuple[int,int,int]):
         self.position = position
         self.velocity = (0,0,0)
+
+    def __repr__(self):
+        return str(self.state())
+
+    def state(self) -> tuple[tuple[int,int,int],tuple[int,int,int]]:
+        """state of the moon"""
+        return (self.position, self.velocity)
 
     def gravity_impact(self, moons: list) -> tuple[int,int,int]:
         """calculate current gravitational impact"""
@@ -86,5 +118,5 @@ assert solve_part1(sample2, 100) == 1940
 assert solve_part1(data, 1000) == 9139
 
 # Part 2
-assert solve_part2(sample) == 0
-assert solve_part2(data) == 0
+assert solve_part2(sample2, 1000000) == 1
+assert solve_part2(data, 1000) == 0
