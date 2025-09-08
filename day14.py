@@ -40,35 +40,37 @@ class Recipe:
 
 def expand_to_ore_based(fuel: Recipe, recipes: dict[str,Recipe]) -> Recipe:
     """expand the fuel ingredients so they are only ore-based"""
-    initial = True
     while True:
-        # Focus on expanding chemicals not made up of fully ore-based
-        # ingredients initially to determine the least amount of values
-        # needed from ore-based ingredients.
-        if not expand_ingredients(fuel, recipes, initial):
-            if initial:
-                initial = False
-            else:
-                break
+        # iteratively expand ingredients until only ore-based ingredients
+        # are left.  Focus on expanding other ingredients in a manner in
+        # which the make-up ingredients are minimized.
+        #print(fuel)
+        if not expand_ingredients(fuel, recipes):
+            break
+    #print(fuel)
     return fuel
 
-def expand_ingredients(fuel: Recipe, recipes: dict[str,Recipe], initial: bool) -> bool:
+def expand_ingredients(fuel: Recipe, recipes: dict[str,Recipe]) -> bool:
     """expand the non-orebased ingredients and return if there are more"""
     expanded = {}
     more_needed = False
     for chemical, qty in fuel.ingredients.items():
         cr = recipes[chemical]
-        ingredients_all_ore_based = False
-        # only focus on expanding chemicals not made up of fully ore-based
-        # ingredients initially to determine the least amount of values
-        # needed from ore-based ingredients.
-        if initial is True and not cr.ore_based:
-            ingredients_all_ore_based = True
-            for c, _ in cr.ingredients.items():
-                if not recipes[c].ore_based:
-                    ingredients_all_ore_based = False
+        # only expand if not ore-based and no other ingredient to expand
+        # contains the chemical as an ingredient
+        expand = False
+        if not cr.ore_based:
+            expand = True
+            for c, _ in fuel.ingredients.items():
+                if c == chemical:
+                    continue
+                for i, _ in recipes[c].ingredients.items():
+                    if i == chemical:
+                        expand = False
+                        break
+                if not expand:
                     break
-        if cr.ore_based or ingredients_all_ore_based:
+        if not expand:
             expanded[chemical] = qty + expanded.get(chemical,0)
             continue
         for c, q in cr.ingredients.items():
@@ -146,7 +148,7 @@ assert solve_part1(sample2) == 165
 assert solve_part1(sample3) == 13312
 assert solve_part1(sample4) == 180697
 assert solve_part1(sample5) == 2210736
-assert solve_part1(data) < 1045824 ##too high
+assert solve_part1(data) < 784018 ##too high
 
 # Part 2
 assert solve_part2(sample) == 0
