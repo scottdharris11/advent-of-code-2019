@@ -7,10 +7,14 @@ from utilities.runner import runner
 def solve_part1(lines: list[str]):
     """part 1 solving function"""
     recipes = parse_input(lines)
+    for c, r in recipes.items():
+        ore_depth(r, recipes)
     fuel = recipes["FUEL"]
-    fuel = expand_to_ore_based(fuel, recipes)
+    ingredients = fuel.ingredients
+    for depth in range(fuel.ore_depth-1,0,-1):
+        ingredients = expand_ingredients(ingredients, recipes, depth)
     ore = 0
-    for c, q in fuel.ingredients.items():
+    for c, q in ingredients.items():
         cr = recipes[c]
         ore += math.ceil(q / cr.quantity) * cr.ingredients["ORE"]
     return ore
@@ -28,57 +32,38 @@ class Recipe:
         self.quantity = int(q)
         self.chemical = c
         self.ingredients = {}
-        self.ore_based = False
+        self.ore_depth = None
         for x in i.split(", "):
             q, c = tuple(x.split(" "))
             self.ingredients[c] = int(q)
             if c == "ORE":
-                self.ore_based = True
+                self.ore_depth = 0
 
     def __repr__(self):
-        return str((self.chemical, self.quantity, self.ore_based, self.ingredients))
+        return str((self.chemical, self.quantity, self.ore_depth, self.ingredients))
 
-def expand_to_ore_based(fuel: Recipe, recipes: dict[str,Recipe]) -> Recipe:
-    """expand the fuel ingredients so they are only ore-based"""
-    while True:
-        # iteratively expand ingredients until only ore-based ingredients
-        # are left.  Focus on expanding other ingredients in a manner in
-        # which the make-up ingredients are minimized.
-        #print(fuel)
-        if not expand_ingredients(fuel, recipes):
-            break
-    #print(fuel)
-    return fuel
+def ore_depth(r: Recipe, recipes: dict[str,Recipe]) -> int:
+    """determine the max depth from initial recipe for chemical to ORE"""
+    if r.ore_depth is not None:
+        return r.ore_depth
+    depth = 0
+    for c, _ in r.ingredients.items():
+        cd = ore_depth(recipes[c],recipes)
+        depth = max(depth,cd+1)
+    r.ore_depth = depth
+    return depth
 
-def expand_ingredients(fuel: Recipe, recipes: dict[str,Recipe]) -> bool:
-    """expand the non-orebased ingredients and return if there are more"""
+def expand_ingredients(r: dict[str,int], recipes: dict[str,Recipe], depth: int) -> dict[str,int]:
+    """expand the ingredients with a specific depth from ORE"""
     expanded = {}
-    more_needed = False
-    for chemical, qty in fuel.ingredients.items():
+    for chemical, qty in r.items():
         cr = recipes[chemical]
-        # only expand if not ore-based and no other ingredient to expand
-        # contains the chemical as an ingredient
-        expand = False
-        if not cr.ore_based:
-            expand = True
-            for c, _ in fuel.ingredients.items():
-                if c == chemical:
-                    continue
-                for i, _ in recipes[c].ingredients.items():
-                    if i == chemical:
-                        expand = False
-                        break
-                if not expand:
-                    break
-        if not expand:
+        if cr.ore_depth != depth:
             expanded[chemical] = qty + expanded.get(chemical,0)
             continue
         for c, q in cr.ingredients.items():
             expanded[c] = (q*math.ceil(qty/cr.quantity)) + expanded.get(c,0)
-            if not recipes[c].ore_based:
-                more_needed = True
-    fuel.ingredients = expanded
-    return more_needed
+    return expanded
 
 def parse_input(lines: list[str]) -> dict[str,Recipe]:
     """parse input lines into recipies"""
@@ -148,7 +133,7 @@ assert solve_part1(sample2) == 165
 assert solve_part1(sample3) == 13312
 assert solve_part1(sample4) == 180697
 assert solve_part1(sample5) == 2210736
-assert solve_part1(data) < 784018 ##too high
+assert solve_part1(data) == 783895
 
 # Part 2
 assert solve_part2(sample) == 0
