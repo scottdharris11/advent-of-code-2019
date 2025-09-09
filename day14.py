@@ -4,25 +4,32 @@ from utilities.data import read_lines
 from utilities.runner import runner
 
 @runner("Day 14", "Part 1")
-def solve_part1(lines: list[str]):
+def solve_part1(lines: list[str]) -> int:
     """part 1 solving function"""
     recipes = parse_input(lines)
-    for c, r in recipes.items():
-        ore_depth(r, recipes)
-    fuel = recipes["FUEL"]
-    ingredients = fuel.ingredients
-    for depth in range(fuel.ore_depth-1,0,-1):
-        ingredients = expand_ingredients(ingredients, recipes, depth)
-    ore = 0
-    for c, q in ingredients.items():
-        cr = recipes[c]
-        ore += math.ceil(q / cr.quantity) * cr.ingredients["ORE"]
-    return ore
+    return ore_required(recipes, 1)
 
 @runner("Day 14", "Part 2")
-def solve_part2(lines: list[str]):
+def solve_part2(lines: list[str]) -> int:
     """part 2 solving function"""
-    return 0
+    ore_avail = 1000000000000
+    recipes = parse_input(lines)
+    # iterate attempting fuel amounts to get the highest fuel amount
+    # possible for the 1 tillion ore's
+    min_fuel = math.ceil(ore_avail / ore_required(recipes, 1))
+    max_fuel = min_fuel * 2
+    while True:
+        fuel = min_fuel + math.ceil((max_fuel - min_fuel) / 2)
+        #print(f"attempting fuel value of {fuel}, current min/max: {min_fuel} / {max_fuel}")
+        ore = ore_required(recipes, fuel)
+        if ore == ore_avail:
+            return fuel
+        if ore < ore_avail:
+            min_fuel = fuel
+        elif ore > ore_avail:
+            max_fuel = fuel
+        if max_fuel - 1 == min_fuel:
+            return min_fuel
 
 class Recipe:
     """structure for chemical reaction"""
@@ -42,16 +49,23 @@ class Recipe:
     def __repr__(self):
         return str((self.chemical, self.quantity, self.ore_depth, self.ingredients))
 
-def ore_depth(r: Recipe, recipes: dict[str,Recipe]) -> int:
-    """determine the max depth from initial recipe for chemical to ORE"""
-    if r.ore_depth is not None:
-        return r.ore_depth
-    depth = 0
-    for c, _ in r.ingredients.items():
-        cd = ore_depth(recipes[c],recipes)
-        depth = max(depth,cd+1)
-    r.ore_depth = depth
-    return depth
+def ore_required(recipes: dict[str,Recipe], fuel_qty: int) -> int:
+    """calculate the ore required for the supplied quantity"""
+    fuel = recipes["FUEL"]
+    ingredients = {}
+    for c, q in fuel.ingredients.items():
+        ingredients[c] = q * fuel_qty
+    for depth in range(fuel.ore_depth-1,0,-1):
+        #print(ingredients)
+        ingredients = expand_ingredients(ingredients, recipes, depth)
+    #print(ingredients)
+    ore = 0
+    for c, q in ingredients.items():
+        cr = recipes[c]
+        core = math.ceil(q / cr.quantity) * cr.ingredients["ORE"]
+        #print(f"{c}: {core}")
+        ore += core
+    return ore
 
 def expand_ingredients(r: dict[str,int], recipes: dict[str,Recipe], depth: int) -> dict[str,int]:
     """expand the ingredients with a specific depth from ORE"""
@@ -71,7 +85,20 @@ def parse_input(lines: list[str]) -> dict[str,Recipe]:
     for line in lines:
         r = Recipe(line)
         recipes[r.chemical] = r
+    for _, r in recipes.items():
+        ore_depth(r, recipes)
     return recipes
+
+def ore_depth(r: Recipe, recipes: dict[str,Recipe]) -> int:
+    """determine the max depth from initial recipe for chemical to ORE"""
+    if r.ore_depth is not None:
+        return r.ore_depth
+    depth = 0
+    for c, _ in r.ingredients.items():
+        cd = ore_depth(recipes[c],recipes)
+        depth = max(depth,cd+1)
+    r.ore_depth = depth
+    return depth
 
 # Data
 data = read_lines("input/day14/input.txt")
@@ -136,5 +163,7 @@ assert solve_part1(sample5) == 2210736
 assert solve_part1(data) == 783895
 
 # Part 2
-assert solve_part2(sample) == 0
-assert solve_part2(data) == 0
+assert solve_part2(sample3) == 82892753
+assert solve_part2(sample4) == 5586022
+assert solve_part2(sample5) == 460664
+assert solve_part2(data) == 1896688
