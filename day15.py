@@ -17,13 +17,36 @@ def solve_part1(line: str) -> int:
 @runner("Day 15", "Part 2")
 def solve_part2(line: str) -> int:
     """part 2 solving function"""
-    return 0
+    oc = parse_integers(line, ",")
+    io = IOProvider()
+    computer = Computer(oc, io)
+    computer.run()
+    spaces = io.spaces
+    for k in spaces:
+        spaces[k] = -1
+    fill_oxygen(io.goal, spaces, 0)
+    fill_time = 0
+    for minute in spaces.values():
+        fill_time = max(fill_time, minute)
+    return fill_time
 
 NORTH = 1
 SOUTH = 2
 WEST = 3
 EAST = 4
 MOVES = {NORTH: (0,-1), SOUTH: (0,1), WEST: (-1,0), EAST: (1,0)}
+
+def fill_oxygen(loc: tuple[int,int], spaces: dict[tuple[int,int],int], minute: int):
+    """recursively fill oxygen for all spaces in the minimum time"""
+    spaces[loc] = minute
+    fill_minute = minute + 1
+    for move in MOVES.values():
+        nloc = (loc[0]+move[0],loc[1]+move[1])
+        if nloc not in spaces:
+            continue
+        fill = spaces[nloc]
+        if fill == -1 or fill_minute < fill:
+            fill_oxygen(nloc, spaces, fill_minute)
 
 def md(a: tuple[int,int], b: tuple[int,int]) -> int:
     """compute the manhattan distance between two points"""
@@ -66,7 +89,8 @@ class IOProvider:
         self.outputs_since_change = 0
 
     def provide_input(self):
-        """provide input to the robot based on current location"""
+        """provide input to the robot based on current location. will
+        pick direction that has been visited the least amount of times"""
         move = 0
         vc = 999999
         for direction, adjust in MOVES.items():
@@ -93,7 +117,8 @@ class IOProvider:
             self.goal = position
 
     def halt_program(self) -> bool:
-        """exit point to stop program if desired"""
+        """exit point to stop program once goal is reached and no 
+        more new spaces have been discovered recently"""
         if self.goal is None:
             return False
         sc = len(self.spaces)
@@ -204,4 +229,4 @@ data = read_lines("input/day15/input.txt")[0]
 assert solve_part1(data) == 212
 
 # Part 2
-assert solve_part2(data) == 0
+assert solve_part2(data) == 358
