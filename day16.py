@@ -5,10 +5,12 @@ from utilities.runner import runner
 @runner("Day 16", "Part 1")
 def solve_part1(line: str, phase_cnt: int) -> str:
     """part 1 solving function"""
-    signal = [int(ch) for ch in line]
+    isignal = [int(ch) for ch in line]
+    osignal = [0] * len(isignal)
     for _ in range(phase_cnt):
-        signal = phase(signal)
-    return "".join([str(i) for i in signal[0:8]])
+        phase(isignal, osignal)
+        isignal, osignal = osignal, isignal
+    return "".join([str(i) for i in isignal[0:8]])
 
 @runner("Day 16", "Part 2")
 def solve_part2(lines: list[str]) -> int:
@@ -19,34 +21,44 @@ class RepeatPattern:
     """structure to enable applying repeating pattern"""
     def __init__(self, position: int):
         self.seq = [0, 1, 0, -1]
+        self.seq_len = len(self.seq)
         self.position = position
         self.seq_idx = 0
-        self.seq_idx_apply = 1
+        self.seq_apply = position - 1
+        if self.seq_apply == 0:
+            self.seq_idx = 1
+            self.seq_apply = position
 
-    def multiplier(self) -> int:
-        """determine the next multiplier to use"""
-        if self.seq_idx_apply == self.position:
-            self.seq_idx += 1
-            if self.seq_idx == len(self.seq):
-                self.seq_idx = 0
-            self.seq_idx_apply = 0
-        self.seq_idx_apply += 1
-        return self.seq[self.seq_idx]
+    def next_pattern(self) -> tuple[int,int]:
+        """provide back next multiplier and steps"""
+        pattern = (self.seq[self.seq_idx],self.seq_apply)
+        self.seq_idx += 1
+        self.seq_apply = self.position
+        if self.seq_idx == self.seq_len:
+            self.seq_idx = 0
+        return pattern
 
-def phase(signal: list[int]) -> list[int]:
+def phase(isignal: list[int], osignal: list[int]) -> None:
     """transform a signal within a phase"""
-    osignal = []
-    slen = len(signal)
+    slen = len(isignal)
     for idx in range(slen):
-        osignal.append(phase_signal_position(signal, idx+1))
-    return osignal
+        osignal[idx] = phase_signal_position(isignal, idx+1, slen)
 
-def phase_signal_position(signal: list[int], position: int) -> int:
+def phase_signal_position(signal: list[int], position: int, signal_len: int) -> int:
     """calculate the next phase value for the supplied position"""
-    pattern = RepeatPattern(position)
+    rp = RepeatPattern(position)
+    mul, steps = rp.next_pattern()
+    idx = 0
     value = 0
-    for s in signal:
-        value += s * pattern.multiplier()
+    while idx < signal_len:
+        if mul == 1:
+            value += sum(signal[idx:idx+steps])
+        elif mul == -1:
+            value -= sum(signal[idx:idx+steps])
+        idx += steps
+        mul, steps = rp.next_pattern()
+        if idx + steps >= signal_len:
+            steps = signal_len - idx
     value = abs(value) % 10
     return value
 
@@ -68,5 +80,5 @@ assert solve_part1(sample4, 100) == "52432133"
 assert solve_part1(data, 100) == "11833188"
 
 # Part 2
-assert solve_part2(sample) == 0
-assert solve_part2(data) == 0
+#assert solve_part2(sample) == 0
+#assert solve_part2(data) == 0
