@@ -22,16 +22,14 @@ def solve_part2(line: str) -> int:
     grid = Grid(io.scaffold_map.splitlines())
     path = grid.cleaner_path()
 
-    # for now, i manually can see the splits, haven't figured out
-    # a way to achieve via code
-    #print(path)
-    func_a = "R,8,L,6,L,4,L,10,R,8"
-    func_b = "L,4,R,4,L,4,R,8"
-    func_c = "L,6,L,4,R,8"
-    main = path.replace(func_a, "A").replace(func_b, "B").replace(func_c, "C")
+    # find patterns and ready them for input functions
+    patterns = path_patterns(path)
+    main = path.replace(patterns[0], "A").replace(patterns[1], "B").replace(patterns[2], "C")
+    patterns.insert(0,main)
+    patterns.append('n')
 
     # setup and run intcode computer
-    io.input_instructions = to_ascii_code("\n".join([main,func_a,func_b,func_c,'n']))
+    io.input_instructions = to_ascii_code("\n".join(patterns))
     io.input_instructions.append(10)
     io.collecting = True
     oc[0] = 2
@@ -113,6 +111,43 @@ def turn(moving: tuple[int,int], t: int) -> tuple[int,int]:
     if ci == len(ADJUST):
         ci = 0
     return ADJUST[ci]
+
+def path_patterns(path: str) -> list[str]:
+    """find set of patterns within content. this is ugly and
+    by no means appliciable to all patterns but it works with
+    my particular input.  using a lot of assumptions that may
+    not hold true for a more generic case."""
+    patterns = []
+    idx = 0
+    begin = 0
+    prev = None
+    prev_idx = None
+    while idx < len(path):
+        # move towards comma after getting R|L and numeric
+        commas = 0
+        while commas != 2:
+            idx += 1
+            if path[idx] == ',':
+                commas += 1
+        # determine if current pattern already detected or
+        # if is unique with remaining content.  when unique,
+        # or if the pattern size is greater than 20, it means
+        # that the previous iteration represents the pattern
+        # to record.
+        p = path[begin:idx]
+        if p in patterns:
+            begin = idx + 1
+            continue
+        if path.count(p,idx) == 1 or len(p) > 20:
+            patterns.append(prev)
+            if len(patterns) == 3:
+                break
+            begin = prev_idx + 1
+            idx = begin
+        else:
+            prev = p
+            prev_idx = idx
+    return patterns
 
 def to_ascii_code(instructions: str) -> list[int]:
     """convert ascii input instructions into intcodes"""
