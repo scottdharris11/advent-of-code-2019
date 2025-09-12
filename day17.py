@@ -10,22 +10,53 @@ def solve_part1(line: str) -> int:
     computer = Computer(oc, io)
     computer.run()
     grid = Grid(io.scaffold_map.splitlines())
-    return alignment_parameters(grid)
+    return grid.alignment_parameters()
 
 @runner("Day 17", "Part 2")
 def solve_part2(line: str) -> int:
     """part 2 solving function"""
-    return 0
+    oc = parse_integers(line, ",")
+    io = IOProvider()
+    computer = Computer(oc, io)
+    computer.run()
+    grid = Grid(io.scaffold_map.splitlines())
+    path = grid.cleaner_path()
+
+    # for now, i manually can see the splits, haven't figured out
+    # a way to achieve via code
+    #print(path)
+    func_a = "R,8,L,6,L,4,L,10,R,8"
+    func_b = "L,4,R,4,L,4,R,8"
+    func_c = "L,6,L,4,R,8"
+    main = path.replace(func_a, "A").replace(func_b, "B").replace(func_c, "C")
+
+    # setup and run intcode computer
+    io.input_instructions = to_ascii_code("\n".join([main,func_a,func_b,func_c,'n']))
+    io.input_instructions.append(10)
+    io.collecting = True
+    oc[0] = 2
+    computer = Computer(oc, io)
+    computer.run()
+    return io.dust_collected
+
+MOVES = ['^','>','v','<']
+ADJUST = [(0,-1), (1,0), (0,1), (-1,0)]
 
 class Grid:
     """strcturue representing the scaffolding grid"""
     def __init__(self, lines: list[str]):
         self.scaffold = set()
         self.intersections = set()
+        self.cleaner = None
+        self.cleaner_dir = None
         for y, line in enumerate(lines):
             for x, c in enumerate(line):
                 if c == '#':
                     self.scaffold.add((x,y))
+                elif c in MOVES:
+                    self.scaffold.add((x,y))
+                    self.cleaner = (x,y)
+                    self.cleaner_dir = MOVES.index(c)
         for point in self.scaffold:
             for move in [(0,-1),(1,0),(0,1),(-1,0)]:
                 check = (point[0]+move[0],point[1]+move[1])
@@ -34,25 +65,83 @@ class Grid:
             else:
                 self.intersections.add(point)
 
-def alignment_parameters(grid: Grid) -> int:
-    """find intersection points and calculate alignment"""
-    alignment = 0
-    for point in grid.intersections:
-        alignment += point[0] * point[1]
-    return alignment
+    def alignment_parameters(self) -> int:
+        """find intersection points and calculate alignment"""
+        alignment = 0
+        for point in self.intersections:
+            alignment += point[0] * point[1]
+        return alignment
+
+    def cleaner_path(self) -> str:
+        """build path for cleaner to visit all scaffolding locations"""
+        path = ""
+        moving = ADJUST[self.cleaner_dir]
+        loc = self.cleaner
+        visited = set()
+        visited.add(loc)
+        steps = 0
+        while visited != self.scaffold:
+            nloc = (loc[0]+moving[0],loc[1]+moving[1])
+            if nloc not in self.scaffold:
+                # keeping it simple here as it seems as if from viewing 
+                # the grid that you can visit all spaces by following a
+                # path that only turns left or right at end of
+                # straightaway without need to backtrace.
+                for t, c in [(-1,'L'),(1,'R')]:
+                    nmove = turn(moving, t)
+                    nloc = (loc[0]+nmove[0],loc[1]+nmove[1])
+                    if nloc in self.scaffold:
+                        if steps != 0:
+                            path += str(steps) + ","
+                        steps = 0
+                        path += c + ","
+                        moving = nmove
+                        break
+            else:
+                visited.add(nloc)
+                loc = nloc
+                steps += 1
+        path += str(steps)
+        return path
+
+def turn(moving: tuple[int,int], t: int) -> tuple[int,int]:
+    """adjust the current moving based on a left or right turn"""
+    ci = ADJUST.index(moving)
+    ci += t
+    if ci < 0:
+        ci = len(ADJUST) - 1
+    if ci == len(ADJUST):
+        ci = 0
+    return ADJUST[ci]
+
+def to_ascii_code(instructions: str) -> list[int]:
+    """convert ascii input instructions into intcodes"""
+    output = []
+    for i in instructions:
+        output.append(ord(i))
+    return output
 
 class IOProvider:
     """structure for fixing robot"""
     def __init__(self):
         self.scaffold_map = ""
+        self.collecting = False
+        self.input_instructions = []
+        self.input_idx = 0
+        self.dust_collected = None
 
     def provide_input(self):
         """provide input to the program"""
-        return 0
+        instruct = self.input_instructions[self.input_idx]
+        self.input_idx += 1
+        return instruct
 
     def accept_output(self, o: int):
         """accept output value and record mapping actions accordingly"""
-        self.scaffold_map += chr(o)
+        if self.collecting:
+            self.dust_collected = o
+        else:
+            self.scaffold_map += chr(o)
 
     def halt_program(self) -> bool:
         """exit point to stop program"""
@@ -153,17 +242,17 @@ class Computer:
 
 # Data
 data = read_lines("input/day17/input.txt")[0]
-sample = """..#..........
+sample = Grid("""..#..........
 ..#..........
 #######...###
 #.#...#...#.#
 #############
 ..#...#...#..
-..#####...^..""".splitlines()
+..#####...^..""".splitlines())
 
 # Part 1
-assert alignment_parameters(Grid(sample)) == 76
+assert sample.alignment_parameters() == 76
 assert solve_part1(data) == 4688
 
 # Part 2
-assert solve_part2(data) == 0
+assert solve_part2(data) == 714866
