@@ -42,7 +42,7 @@ class Cave:
     def min_key_path(self) -> int:
         """determine the path to retrieve all keys that takes the least steps"""
         keys = set(self.keys_by_name.keys())
-        return self.best_path(self.start, keys, 0)
+        return self.best_path(self.start, keys)
 
     def path_from_to(self, s: tuple[int,int], key: chr, keys: set[chr]) -> SearchSolution:
         """find the path from starting location with the supplied set of keys still active"""
@@ -64,30 +64,22 @@ class Cave:
                         return None
         return solution
 
-    def best_path(self, loc: tuple[int,int], keys: set[chr], limit: int) -> int:
+    def best_path(self, loc: tuple[int,int], keys: set[chr]) -> int:
         """find the best path from the supplied location to retrieve all keys"""
         ckey = (loc, frozenset(keys))
         if ckey in self.path_cache:
             return self.path_cache[ckey]
-        akeys = []
+        steps = 0
         for key in keys:
             solution = self.path_from_to(loc, key, keys)
             if solution is None:
                 continue
-            akeys.append((solution.cost,key))
-        akeys.sort()
-        steps = 0
-        for cost, key in akeys:
-            climit = 0
-            if limit > 0:
-                if cost >= limit:
-                    continue
-                climit = limit - cost
+            cost = solution.cost
             nkeys = set(keys)
             nkeys.remove(key)
             ccost = 0
             if len(nkeys) > 0:
-                ccost = self.best_path(self.keys_by_name[key], nkeys, climit)
+                ccost = self.best_path(self.keys_by_name[key], nkeys)
                 if ccost == 0:
                     continue
             if steps == 0 or cost + ccost < steps:
