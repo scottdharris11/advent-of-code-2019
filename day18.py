@@ -1,13 +1,15 @@
 """utility imports"""
+from typing import Self
 from utilities.data import read_lines
 from utilities.runner import runner
-from utilities.search import Search, Searcher, SearchMove, SearchSolution
+from utilities.search import Search, Searcher, SearchMove
 
 @runner("Day 18", "Part 1")
 def solve_part1(lines: list[str]) -> int:
     """part 1 solving function"""
     cave = Cave(lines)
-    return cave.min_key_path()
+    keys = set(cave.keys_by_name)
+    return best_key_path(KeyState(cave, '@', keys, {}), keys)
 
 @runner("Day 18", "Part 2")
 def solve_part2(lines: list[str]) -> int:
@@ -17,12 +19,10 @@ def solve_part2(lines: list[str]) -> int:
 class Cave:
     """structure representing the cave details of the problem space"""
     def __init__(self, lines: list[str]) -> None:
-        self.path_cache = {}
+        self.path_maps = None
         self.walls = set()
-        self.keys = {}
         self.keys_by_name = {}
         self.doors = {}
-        self.doors_by_name = {}
         self.start = None
         for y, line in enumerate(lines):
             for x, c in enumerate(line):
@@ -33,59 +33,53 @@ class Cave:
                     self.start = l
                 elif c.isalpha():
                     if c.islower():
-                        self.keys[l] = c
                         self.keys_by_name[c] = l
                     else:
                         self.doors[l] = c
-                        self.doors_by_name[c] = l
 
-    def min_key_path(self) -> int:
-        """determine the path to retrieve all keys that takes the least steps"""
-        keys = set(self.keys_by_name.keys())
-        return self.best_path(self.start, keys)
+    def map_paths(self) -> dict[chr,dict[chr,tuple[int,list[str]]]]:
+        """map all optimal paths and door blockers"""
+        if self.path_maps is not None:
+            return self.path_maps
+        keys = ['@']
+        keys.extend(self.keys_by_name.keys())
+        path_maps = {}
+        for offset, a in enumerate(keys):
+            for b in keys[offset+1:]:
+                a_loc = self.key_location(a)
+                b_loc = self.key_location(b)
+                solution = self.steps_and_doors(a_loc, b_loc)
+                if solution is None:
+                    continue
+                self.add_path_entry(path_maps, a, b, solution)
+                self.add_path_entry(path_maps, b, a, solution)
+        self.path_maps = path_maps
+        return path_maps
 
-    def path_from_to(self, s: tuple[int,int], key: chr, keys: set[chr]) -> SearchSolution:
-        """find the path from starting location with the supplied set of keys still active"""
-        goal = self.keys_by_name[key]
-        walls = set(self.walls)
-        for k in keys:
-            d = k.upper()
-            if d in self.doors_by_name:
-                walls.add(self.doors_by_name[d])
-        ps = PathSearcher(walls, goal)
+    def key_location(self, key: chr) -> tuple[int,int]:
+        """get the key location based on name"""
+        if key == '@':
+            return self.start
+        return self.keys_by_name[key]
+
+    def add_path_entry(self, pm: dict, f: chr, t: chr, entry: tuple[int,list[str]]) -> None:
+        """add path entry for from/to"""
+        from_paths = pm.get(f, {})
+        from_paths[t] = entry
+        pm[f] = from_paths
+
+    def steps_and_doors(self, s: tuple[int,int], e: tuple[int,int]) -> tuple[int,list[str]]:
+        """determine the optimal path between two locations and the doors between"""
+        ps = PathSearcher(self.walls, e)
         search = Search(ps)
         solution = search.best(SearchMove(0,s))
-        if solution is not None:
-            for p in solution.path:
-                if p == s or p == goal:
-                    continue
-                if p in self.keys:
-                    if self.keys[p] in keys:
-                        return None
-        return solution
-
-    def best_path(self, loc: tuple[int,int], keys: set[chr]) -> int:
-        """find the best path from the supplied location to retrieve all keys"""
-        ckey = (loc, frozenset(keys))
-        if ckey in self.path_cache:
-            return self.path_cache[ckey]
-        steps = 0
-        for key in keys:
-            solution = self.path_from_to(loc, key, keys)
-            if solution is None:
-                continue
-            cost = solution.cost
-            nkeys = set(keys)
-            nkeys.remove(key)
-            ccost = 0
-            if len(nkeys) > 0:
-                ccost = self.best_path(self.keys_by_name[key], nkeys)
-                if ccost == 0:
-                    continue
-            if steps == 0 or cost + ccost < steps:
-                steps = cost + ccost
-        self.path_cache[ckey] = steps
-        return steps
+        if solution is None:
+            return None
+        doors = []
+        for p in solution.path:
+            if p in self.doors:
+                doors.append(self.doors[p])
+        return (solution.cost, doors)
 
 class PathSearcher(Searcher):
     """path search implementation for the area"""
@@ -109,11 +103,64 @@ class PathSearcher(Searcher):
 
     def distance_from_goal(self, obj: tuple[int,int]) -> int:
         """calculate distance from the goal"""
-        return md(self.goal, obj)
+        return abs(self.goal[0]-obj[0]) + abs(self.goal[1]-obj[1])
 
-def md(a: tuple[int,int], b: tuple[int,int]) -> int:
-    """compute the manhattan distance between two points"""
-    return abs(a[0]-b[0]) + abs(a[1]-b[1])
+class KeyState:
+    """structure to represent the state of key collection in a cave"""
+    def __init__(self, cave: Cave, loc: chr, keys: set[chr], cache: dict):
+        self.cave = cave
+        self.loc = loc
+        self.keys = frozenset(keys)
+        self.cache = cache
+
+    def path_known(self) -> tuple[bool, int]:
+        """determine if the supplied state has been seen and return steps if so"""
+        cache_key = (self.loc, self.keys)
+        if cache_key in self.cache:
+            return True, self.cache[cache_key]
+        return False, 0
+
+    def record_path_results(self, steps: int) -> None:
+        """cache best path step results from current state"""
+        cache_key = (self.loc, self.keys)
+        self.cache[cache_key] = steps
+
+    def state_at_key(self, key: chr) -> Self:
+        """return new state to represent location at supplied key"""
+        nloc = key
+        nkeys = set(self.keys)
+        nkeys.remove(key)
+        return KeyState(self.cave, nloc, nkeys, self.cache)
+
+    def potential_moves(self, outstanding_keys: set[chr]) -> tuple[int,chr]:
+        """based on the current state, determine next potential moves"""
+        paths = self.cave.map_paths()[self.loc]
+        moves = []
+        for loc, (steps, doors) in paths.items():
+            if loc not in outstanding_keys:
+                continue
+            blocked = False
+            for door in doors:
+                if door.lower() in outstanding_keys:
+                    blocked = True
+                    break
+            if not blocked:
+                moves.append((steps, loc))
+        return moves
+
+def best_key_path(state: KeyState, outstanding_keys: set[chr]) -> int:
+    """find the best path from the supplied location to retrieve all keys"""
+    known, steps = state.path_known()
+    if known:
+        return steps
+    steps = 0
+    for cost, key in state.potential_moves(outstanding_keys):
+        new_state = state.state_at_key(key)
+        ccost = best_key_path(new_state, new_state.keys)
+        if steps == 0 or cost + ccost < steps:
+            steps = cost + ccost
+    state.record_path_results(steps)
+    return steps
 
 # Data
 data = read_lines("input/day18/input.txt")
