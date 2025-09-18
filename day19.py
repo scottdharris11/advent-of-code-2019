@@ -9,11 +9,7 @@ def solve_part1(line: str, grid_size: int) -> int:
     impact_points = 0
     for y in range(grid_size):
         for x in range(grid_size):
-            io = IOProvider()
-            io.coords = [x, y]
-            computer = Computer(oc, io)
-            computer.run()
-            if io.output_val == 1:
+            if in_beam(oc, x, y):
                 impact_points += 1
     return impact_points
 
@@ -21,7 +17,7 @@ def solve_part1(line: str, grid_size: int) -> int:
 def solve_part2(line: str) -> int:
     """part 2 solving function"""
     oc = parse_integers(line, ",")
-    x, y = 500, 1000
+    x, y = 500, 1000 # educated guess based on looking at beam early path
     prev_match = None
     while True:
         tl, tr, bl = fits_ship(oc, x, y)
