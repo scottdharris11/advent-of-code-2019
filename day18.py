@@ -9,12 +9,34 @@ def solve_part1(lines: list[str]) -> int:
     """part 1 solving function"""
     cave = Cave(lines)
     keys = set(cave.keys_by_name)
-    return best_key_path(KeyState(cave, '@', keys, {}), keys)
+    return best_key_path([KeyState(cave, '@', keys)], keys, {})
 
 @runner("Day 18", "Part 2")
 def solve_part2(lines: list[str]) -> int:
     """part 2 solving function"""
-    return 0
+    vl = len(lines)
+    vm = vl // 2
+    hl = len(lines[0])
+    hm = hl // 2
+    lines[vm-1] = lines[vm-1][:hm-1] + "@#@" + lines[vm-1][hm+2:]
+    lines[vm] = lines[vm][:hm-1] + "###" + lines[vm][hm+2:]
+    lines[vm+1] = lines[vm+1][:hm-1] + "@#@" + lines[vm+1][hm+2:]
+    all_keys = set()
+    cave_states = []
+    for hs, he, vs, ve in [(0,hm+1,0,vm+1),(hm,hl,0,vm+1),(0,hm+1,vm,vl),(hm,hl,vm,vl)]:
+        cl = extract_cave(lines, hs, he, vs, ve)
+        cave = Cave(cl)
+        cave_keys = set(cave.keys_by_name)
+        all_keys.update(cave_keys)
+        cave_states.append(KeyState(cave, '@', cave_keys))
+    return best_key_path(cave_states, all_keys, {})
+
+def extract_cave(lines: list[str], hs: int, he: int, vs: int, ve: int) -> list[str]:
+    """extract cave quadraunt"""
+    cave_lines = []
+    for line in lines[vs:ve]:
+        cave_lines.append(line[hs:he])
+    return cave_lines
 
 class Cave:
     """structure representing the cave details of the problem space"""
@@ -107,30 +129,17 @@ class PathSearcher(Searcher):
 
 class KeyState:
     """structure to represent the state of key collection in a cave"""
-    def __init__(self, cave: Cave, loc: chr, keys: set[chr], cache: dict):
+    def __init__(self, cave: Cave, loc: chr, keys: set[chr]):
         self.cave = cave
         self.loc = loc
         self.keys = frozenset(keys)
-        self.cache = cache
-
-    def path_known(self) -> tuple[bool, int]:
-        """determine if the supplied state has been seen and return steps if so"""
-        cache_key = (self.loc, self.keys)
-        if cache_key in self.cache:
-            return True, self.cache[cache_key]
-        return False, 0
-
-    def record_path_results(self, steps: int) -> None:
-        """cache best path step results from current state"""
-        cache_key = (self.loc, self.keys)
-        self.cache[cache_key] = steps
 
     def state_at_key(self, key: chr) -> Self:
         """return new state to represent location at supplied key"""
         nloc = key
         nkeys = set(self.keys)
         nkeys.remove(key)
-        return KeyState(self.cave, nloc, nkeys, self.cache)
+        return KeyState(self.cave, nloc, nkeys)
 
     def potential_moves(self, outstanding_keys: set[chr]) -> tuple[int,chr]:
         """based on the current state, determine next potential moves"""
@@ -148,19 +157,34 @@ class KeyState:
                 moves.append((steps, loc))
         return moves
 
-def best_key_path(state: KeyState, outstanding_keys: set[chr]) -> int:
+def best_key_path(states: list[KeyState], outstanding_keys: set[chr], cache: dict) -> int:
     """find the best path from the supplied location to retrieve all keys"""
-    known, steps = state.path_known()
-    if known:
-        return steps
+    ck = cache_key(states, outstanding_keys)
+    if ck in cache:
+        return cache[ck]
+    moves = []
+    for i, state in enumerate(states):
+        for cost, key in state.potential_moves(outstanding_keys):
+            moves.append((i,cost,key))
     steps = 0
-    for cost, key in state.potential_moves(outstanding_keys):
-        new_state = state.state_at_key(key)
-        ccost = best_key_path(new_state, new_state.keys)
+    for i, cost, key in moves:
+        new_states = states[:]
+        new_states[i] = states[i].state_at_key(key)
+        new_keys = set(outstanding_keys)
+        new_keys.remove(key)
+        ccost = best_key_path(new_states, new_keys, cache)
         if steps == 0 or cost + ccost < steps:
             steps = cost + ccost
-    state.record_path_results(steps)
+    cache[ck] = steps
     return steps
+
+def cache_key(states: list[KeyState], outstanding_keys: set[chr]) -> tuple:
+    """build cache key for list of states and needed keys"""
+    ck = []
+    for state in states:
+        ck.append(state.loc)
+    ck.append(frozenset(outstanding_keys))
+    return tuple(ck)
 
 # Data
 data = read_lines("input/day18/input.txt")
@@ -192,6 +216,37 @@ sample5 = """########################
 ###A#B#C################
 ###g#h#i################
 ########################""".splitlines()
+sample6 = """#######
+#a.#Cd#
+##...##
+##.@.##
+##...##
+#cB#Ab#
+#######""".splitlines()
+sample7 = """###############
+#d.ABC.#.....a#
+######   ######
+###### @ ######
+######   ######
+#b.....#.....c#
+###############""".splitlines()
+sample8 = """#############
+#DcBa.#.GhKl#
+#.###   #I###
+#e#d# @ #j#k#
+###C#   ###J#
+#fEbA.#.FgHi#
+#############""".splitlines()
+sample9 = """#############
+#g#f.D#..h#l#
+#F###e#E###.#
+#dCba   BcIJ#
+##### @ #####
+#nK.L   G...#
+#M###N#H###.#
+#o#m..#i#jk.#
+#############""".splitlines()
+
 
 # Part 1
 assert solve_part1(sample) == 8
@@ -202,5 +257,8 @@ assert solve_part1(sample5) == 81
 assert solve_part1(data) == 7048
 
 # Part 2
-assert solve_part2(sample) == 0
-assert solve_part2(data) == 0
+assert solve_part2(sample6) == 8
+assert solve_part2(sample7) == 24
+assert solve_part2(sample8) == 32
+assert solve_part2(sample9) == 72
+assert solve_part2(data) == 1836
