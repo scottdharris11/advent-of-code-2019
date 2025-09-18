@@ -8,7 +8,6 @@ def solve_part1(line: str, grid_size: int) -> int:
     oc = parse_integers(line, ",")
     impact_points = 0
     for y in range(grid_size):
-        line = ""
         for x in range(grid_size):
             io = IOProvider()
             io.coords = [x, y]
@@ -16,16 +15,46 @@ def solve_part1(line: str, grid_size: int) -> int:
             computer.run()
             if io.output_val == 1:
                 impact_points += 1
-                line += '#'
-            else:
-                line += '.'
-        print(line)
     return impact_points
 
 @runner("Day 19", "Part 2")
 def solve_part2(line: str) -> int:
     """part 2 solving function"""
-    return 0
+    oc = parse_integers(line, ",")
+    x, y = 500, 1000
+    prev_match = None
+    while True:
+        tl, tr, bl = fits_ship(oc, x, y)
+        #print(f"x/y: ({x},{y}), top_left: {tl}, top_right: {tr}, bottom_left: {bl}")
+        if tl and tr and bl:
+            if prev_match == (x,y):
+                break
+            prev_match = (x,y)
+            x -= 1
+            y -= 1
+        if not tl:
+            x += 1
+            y += 1
+        if not bl:
+            x += 1
+        if not tr:
+            y += 1
+    return (x * 10000) + y
+
+def fits_ship(oc: list[int], x: int, y: int) -> tuple[bool,bool,bool]:
+    """determine if the ship will fit in tractor beam at supplied coords"""
+    tl = in_beam(oc, x, y)
+    tr = in_beam(oc, x+99, y)
+    bl = in_beam(oc, x, y+99)
+    return (tl,tr,bl)
+
+def in_beam(oc: list[int], x: int, y: int) -> bool:
+    """determines if point is within the beam"""
+    io = IOProvider()
+    io.coords = [x, y]
+    computer = Computer(oc, io)
+    computer.run()
+    return io.output_val == 1
 
 class IOProvider:
     """structure for fixing robot"""
@@ -148,4 +177,4 @@ data = read_lines("input/day19/input.txt")[0]
 assert solve_part1(data, 50) == 158
 
 # Part 2
-assert solve_part2(data) == 0
+assert solve_part2(data) == 6191165
