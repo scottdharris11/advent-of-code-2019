@@ -7,29 +7,39 @@ from utilities.search import Search, Searcher, SearchMove
 @runner("Day 20", "Part 1")
 def solve_part1(lines: list[str]):
     """part 1 solving function"""
-    maze = Maze(lines)
-    aa = maze.label_points['AA'][0]
-    zz = maze.label_points['ZZ'][0]
+    maze = Maze(lines, False, 0)
     visited = set()
-    visited.add(aa)
-    return best_route(aa, zz, visited, maze)
+    visited.add((0,maze.start))
+    return best_route((0,maze.start), (0,maze.end), visited, maze)
 
 @runner("Day 20", "Part 2")
-def solve_part2(lines: list[str]):
+def solve_part2(lines: list[str], max_recurse: int):
     """part 2 solving function"""
-    return 0
+    maze = Maze(lines, True, max_recurse)
+    visited = set()
+    visited.add((0,maze.start))
+    return best_route((0,maze.start), (0,maze.end), visited, maze)
 
 Point: TypeAlias = tuple[int,int]
+LevelPoint: TypeAlias = tuple[int,Point]
 
 class Maze:
     """structure representing maze"""
-    def __init__(self, lines: list[str]):
+    def __init__(self, lines: list[str], recursive: bool, max_recurse: int):
         self.spaces = set()
-        self.labels = set()
         self.portals = {}
-        self.label_points = {}
+        self.outer_portals = set()
         self.point_labels = {}
         self.routes_cache = None
+        self.start = None
+        self.end = None
+        self.recursive = recursive
+        self.max_recurse = max_recurse
+
+        # process grid initially
+        labels = set()
+        label_points = {}
+        min_y, max_y, min_x, max_x = None, None, None, None
         for y, line in enumerate(lines):
             for x, c in enumerate(line):
                 if c in (' ', '#'):
@@ -37,21 +47,39 @@ class Maze:
                 point = (x,y)
                 if c == '.':
                     self.spaces.add(point)
+                    if min_x is None or x < min_x:
+                        min_x = x
+                    if max_x is None or x > max_x:
+                        max_x = x
+                    if min_y is None or y < min_y:
+                        min_y = y
+                    if max_y is None or y > max_y:
+                        max_y = y
                 else:
-                    if point in self.labels:
+                    if point in labels:
                         continue
                     lbl, lpoint, spoint = self.extract_label(point, lines)
-                    self.labels.add(point)
-                    self.labels.add(lpoint)
-                    lp = self.label_points.get(lbl, [])
+                    labels.add(point)
+                    labels.add(lpoint)
+                    lp = label_points.get(lbl, [])
                     lp.append(spoint)
-                    self.label_points[lbl] = lp
+                    label_points[lbl] = lp
                     self.point_labels[spoint] = lbl
-        for lp in self.label_points.values():
+                    if lbl == 'AA':
+                        self.start = spoint
+                    elif lbl == 'ZZ':
+                        self.end = spoint
+
+        # build portal references
+        for lp in label_points.values():
             if len(lp) != 2:
                 continue
             self.portals[lp[0]] = lp[1]
             self.portals[lp[1]] = lp[0]
+            if lp[0][0] in [min_x, max_x] or lp[0][1] in [min_y, max_y]:
+                self.outer_portals.add(lp[0])
+            else:
+                self.outer_portals.add(lp[1])
 
     def extract_label(self, point: Point, lines: list[str]) -> tuple:
         """extract the label that starts at the supplied point"""
@@ -67,7 +95,7 @@ class Maze:
                 break
         return (label, (lx,ly), (sx,sy))
 
-    def routes(self) -> dict[str,list[tuple[str,int]]]:
+    def routes(self) -> dict[str,list[tuple[Point,int]]]:
         """compute all the possible routes between different portal labels"""
         if self.routes_cache is not None:
             return self.routes_cache
@@ -88,6 +116,29 @@ class Maze:
                 add_route(r, b, a, solution.cost)
         self.routes_cache = r
         return r
+
+    def portal_jump(self, level, point) -> LevelPoint:
+        """adjust the portal and level appropriately"""
+        if self.recursive:
+            if point in self.outer_portals:
+                level -= 1
+            else:
+                level += 1
+        return (level, self.portals[point])
+
+    def moves_from(self, level, point) -> list[tuple[Point,int]]:
+        """moves to take from the supplied point on the supplied level"""
+        points = self.routes()[point]
+        if self.recursive:
+            moves = []
+            for move in points:
+                if level == 0 and move[0] in self.outer_portals:
+                    continue
+                if level != 0 and move[0] in [self.start, self.end]:
+                    continue
+                moves.append(move)
+            points = moves
+        return points
 
 def add_route(routes: dict, f: Point, t: Point, steps: int) -> None:
     """add route between labels"""
@@ -119,22 +170,29 @@ class PathSearcher(Searcher):
         """calculate distance from the goal"""
         return abs(self.goal[0]-obj[0]) + abs(self.goal[1]-obj[1])
 
-def best_route(point: Point, goal: Point, visited: set[Point], maze: Maze) -> int:
+def best_route(lp: LevelPoint, goal: LevelPoint, visited: set[LevelPoint], maze: Maze) -> int:
     """find the best route between to the goal"""
-    if point == goal:
+    if lp == goal:
         return 0
+    level, point = lp
     padjust = 0
     if point in maze.portals:
         padjust = 1 # cost of using a portal
-        point = maze.portals[point]
+        level, point = maze.portal_jump(level, point)
+    # made this variable since it seems it required tweaking per puzzle
+    # to efficiently complete.  i am sure there is a trick to deal with
+    # this more universally, but just going with it for now.
+    if level > maze.max_recurse:
+        return None
     best = None
-    for p, cost in maze.routes()[point]:
-        if p in visited:
+    for p, cost in maze.moves_from(level, point):
+        nlp = (level,p)
+        if nlp in visited:
             continue
         cost += padjust
         nvisited = set(visited)
-        nvisited.add(p)
-        ccost = best_route(p, goal, nvisited, maze)
+        nvisited.add(nlp)
+        ccost = best_route(nlp, goal, nvisited, maze)
         if ccost is None:
             continue
         if best is None or cost + ccost < best:
@@ -199,6 +257,43 @@ YN......#               VT..#....QG
   #########.###.###.#############  
            B   J   C               
            U   P   P               """.splitlines()
+sample3 = """             Z L X W       C                 
+             Z P Q B       K                 
+  ###########.#.#.#.#######.###############  
+  #...#.......#.#.......#.#.......#.#.#...#  
+  ###.#.#.#.#.#.#.#.###.#.#.#######.#.#.###  
+  #.#...#.#.#...#.#.#...#...#...#.#.......#  
+  #.###.#######.###.###.#.###.###.#.#######  
+  #...#.......#.#...#...#.............#...#  
+  #.#########.#######.#.#######.#######.###  
+  #...#.#    F       R I       Z    #.#.#.#  
+  #.###.#    D       E C       H    #.#.#.#  
+  #.#...#                           #...#.#  
+  #.###.#                           #.###.#  
+  #.#....OA                       WB..#.#..ZH
+  #.###.#                           #.#.#.#  
+CJ......#                           #.....#  
+  #######                           #######  
+  #.#....CK                         #......IC
+  #.###.#                           #.###.#  
+  #.....#                           #...#.#  
+  ###.###                           #.#.#.#  
+XF....#.#                         RF..#.#.#  
+  #####.#                           #######  
+  #......CJ                       NM..#...#  
+  ###.#.#                           #.###.#  
+RE....#.#                           #......RF
+  ###.###        X   X       L      #.#.#.#  
+  #.....#        F   Q       P      #.#.#.#  
+  ###.###########.###.#######.#########.###  
+  #.....#...#.....#.......#...#.....#.#...#  
+  #####.#.###.#######.#######.###.###.#.#.#  
+  #.......#.......#.#.#.#.#...#...#...#.#.#  
+  #####.###.#####.#.#.#.#.###.###.#.###.###  
+  #.......#.....#.#...#...............#...#  
+  #############.#.#.###.###################  
+               A O F   N                     
+               A A D   M                     """.splitlines()
 
 # Part 1
 assert solve_part1(sample) == 23
@@ -206,6 +301,6 @@ assert solve_part1(sample2) == 58
 assert solve_part1(data) == 658
 
 # Part 2
-assert solve_part2(sample) == 0
-assert solve_part2(sample2) == 0
-assert solve_part2(data) == 0
+assert solve_part2(sample, 10) == 26
+assert solve_part2(sample3, 15) == 396
+assert solve_part2(data, 25) == 7612
