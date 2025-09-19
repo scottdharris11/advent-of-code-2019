@@ -10,7 +10,9 @@ def solve_part1(lines: list[str]):
     maze = Maze(lines)
     aa = maze.label_points['AA'][0]
     zz = maze.label_points['ZZ'][0]
-    return best_route(aa, zz, 0, [aa], maze)
+    visited = set()
+    visited.add(aa)
+    return best_route(aa, zz, visited, maze)
 
 @runner("Day 20", "Part 2")
 def solve_part2(lines: list[str]):
@@ -27,7 +29,7 @@ class Maze:
         self.portals = {}
         self.label_points = {}
         self.point_labels = {}
-        self.route_cache = None
+        self.routes_cache = None
         for y, line in enumerate(lines):
             for x, c in enumerate(line):
                 if c in (' ', '#'):
@@ -67,8 +69,8 @@ class Maze:
 
     def routes(self) -> dict[str,list[tuple[str,int]]]:
         """compute all the possible routes between different portal labels"""
-        if self.route_cache is not None:
-            return self.route_cache
+        if self.routes_cache is not None:
+            return self.routes_cache
         points = list(self.point_labels.keys())
         r = {}
         for i, a in enumerate(points):
@@ -84,7 +86,7 @@ class Maze:
                     continue
                 add_route(r, a, b, solution.cost)
                 add_route(r, b, a, solution.cost)
-        self.route_cache = r
+        self.routes_cache = r
         return r
 
 def add_route(routes: dict, f: Point, t: Point, steps: int) -> None:
@@ -117,24 +119,27 @@ class PathSearcher(Searcher):
         """calculate distance from the goal"""
         return abs(self.goal[0]-obj[0]) + abs(self.goal[1]-obj[1])
 
-def best_route(point: Point, goal: Point, steps: int, visited: list[Point], maze: Maze) -> int:
+def best_route(point: Point, goal: Point, visited: set[Point], maze: Maze) -> int:
     """find the best route between to the goal"""
     if point == goal:
-        #print(f"route found ({steps}): {visited}")
-        return steps
+        return 0
+    padjust = 0
     if point in maze.portals:
-        steps += 1 # cost of using a portal
+        padjust = 1 # cost of using a portal
         point = maze.portals[point]
-    cost = 0
-    for p, s in maze.routes()[point]:
+    best = None
+    for p, cost in maze.routes()[point]:
         if p in visited:
             continue
-        nvisited = list(visited)
-        nvisited.append(p)
-        cc = best_route(p, goal, steps+s, nvisited, maze)
-        if cc > 0 and (cost == 0 or cc < cost):
-            cost = cc
-    return cost
+        cost += padjust
+        nvisited = set(visited)
+        nvisited.add(p)
+        ccost = best_route(p, goal, nvisited, maze)
+        if ccost is None:
+            continue
+        if best is None or cost + ccost < best:
+            best = cost + ccost
+    return best
 
 # Data
 data = read_lines("input/day20/input.txt")
