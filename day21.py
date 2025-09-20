@@ -8,8 +8,6 @@ def solve_part1(line: str) -> int:
     oc = parse_integers(line, ",")
     script = [
         "NOT B J", # two steps a way is pit with landing after #..#.
-        "NOT C T",
-        "AND T J",
         "AND D J",
         "NOT A T", # next step a pit .
         "OR T J",
@@ -30,7 +28,24 @@ def solve_part1(line: str) -> int:
 def solve_part2(line: str) -> int:
     """part 2 solving function"""
     oc = parse_integers(line, ",")
-    return 0
+    script = [
+        "NOT B J", # two steps a way is pit with landing after #..#.
+        "AND D J",
+        "NOT C T", # three steps away is pit with landing after ##.#
+        "AND D T",
+        "AND H T", # exclude scenarios where eight away is not landing ##.#.#
+        "OR T J",
+        "NOT A T", # next step a pit .
+        "OR T J",
+        "RUN"
+    ]
+    io = IOProvider(to_ascii_code(script))
+    computer = Computer(oc, io)
+    computer.run()
+    if io.output_vals[-1] > 255:
+        return io.output_vals[-1]
+    print(to_ascii(io.output_vals))
+    return -1
 
 def to_ascii_code(lines: list[str]) -> list[int]:
     """convert ascii input instructions into intcodes"""
@@ -171,4 +186,4 @@ data = read_lines("input/day21/input.txt")[0]
 assert solve_part1(data) == 19354928
 
 # Part 2
-assert solve_part2(data) == 0
+assert solve_part2(data) == 1141997803
