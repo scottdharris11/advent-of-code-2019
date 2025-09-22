@@ -10,6 +10,13 @@ def solve_part1(lines: list[str]):
 @runner("Day 22", "Part 2")
 def solve_part2(lines: list[str]):
     """part 2 solving function"""
+    # tracking values not possible due to size.
+    # only current thought would be to try to reverse
+    # the instruction process from index 2020 to
+    # track where it lands. doing that for a number of
+    # times to see if there is a repeating pattern
+    # for that index to enable us to skip the massize
+    # amount of iterations.
     return 0
 
 NEW_STACK_INSTRUCT = "deal into new stack"
@@ -176,5 +183,4 @@ assert shuffle_idx(sample4, 10, 9) == 0
 assert solve_part1(data) == 8502
 
 # Part 2
-assert solve_part2(sample2) == 0
 assert solve_part2(data) == 0
