@@ -10,13 +10,6 @@ def solve_part1(lines: list[str]):
 @runner("Day 22", "Part 2")
 def solve_part2(lines: list[str]):
     """part 2 solving function"""
-    # tracking values not possible due to size.
-    # only current thought would be to try to reverse
-    # the instruction process from index 2020 to
-    # track where it lands. doing that for a number of
-    # times to see if there is a repeating pattern
-    # for that index to enable us to skip the massize
-    # amount of iterations.
     return 0
 
 NEW_STACK_INSTRUCT = "deal into new stack"
@@ -66,11 +59,7 @@ assert new_stack_idx(9, 10) == 0
 
 def cut_stack_idx(idx: int, point: int, size: int) -> int:
     """index adjust based on cut instruction"""
-    if point < 0:
-        point = size + point
-    if point <= idx:
-        return idx - point
-    return size - point + idx
+    return (idx - point) % size
 
 assert cut_stack_idx(0, 3, 10) == 7
 assert cut_stack_idx(1, 3, 10) == 8
@@ -117,25 +106,7 @@ assert cut_stack_idx(3, 4, 10) == 9
 
 def deal_stack_idx(idx: int, increment: int, size: int) -> int:
     """index adjust based on deal increment"""
-    if idx == 0:
-        return idx
-    pass_remain = size % increment
-    pass_increment = (size // increment) + 1
-    if idx <= pass_increment-1:
-        return increment * idx
-    pidx = pass_increment
-    nidx = (pass_increment * increment) - size
-    while pidx < idx:
-        pincr = pass_increment
-        if nidx > pass_remain:
-            pincr -= 1
-        if idx < pidx + pincr:
-            nidx += (idx - pidx) * increment
-            pidx = idx
-        else:
-            nidx = nidx + (pincr * increment) - size
-            pidx += pincr
-    return nidx
+    return (idx * increment) % size
 
 assert deal_stack_idx(0, 3, 10) == 0
 assert deal_stack_idx(1, 3, 10) == 3
@@ -150,25 +121,9 @@ assert deal_stack_idx(9, 3, 10) == 7
 
 def rdeal_stack_idx(idx: int, increment: int, size: int) -> int:
     """reverse index adjust based on deal increment"""
-    if idx == 0:
-        return idx
-    pass_remain = size % increment
-    pass_increment = (size // increment) + 1
-    if idx % increment == 0:
-        return idx // increment
-    pidx = pass_increment
-    nidx = (pass_increment * increment) - size
-    while nidx != idx:
-        pincr = pass_increment
-        if nidx > pass_remain:
-            pincr -= 1
-        if nidx < idx and (idx - nidx) % increment == 0:
-            pidx += (idx - nidx) // increment
-            nidx = idx
-        else:
-            nidx = nidx + (pincr * increment) - size
-            pidx += pincr
-    return pidx
+    # needed help here:  to reverse needed to do modular inverse which
+    # can be accomplished in python using the pow function.
+    return (idx * pow(increment, -1, size)) % size
 
 assert rdeal_stack_idx(0, 3, 10) == 0
 assert rdeal_stack_idx(3, 3, 10) == 1
