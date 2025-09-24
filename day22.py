@@ -10,7 +10,62 @@ def solve_part1(lines: list[str]):
 @runner("Day 22", "Part 2")
 def solve_part2(lines: list[str]):
     """part 2 solving function"""
-    return 0
+    # to solve this, we are going to need to work backwards from the ending
+    # index to get to the original index after all instructions were applied
+    # which will give us the value that was assigned to the card that ended
+    # up in the 2020 index.
+    #
+    # was really stuck on this solve.  had to seek help and learned that
+    # all of the transform formulas can be formed into linear polynomial
+    # formulas that can then be combined to represent all the instructions
+    # in a single equation.  Once that is achieved, you can raise that
+    # polynomial by the number of required steps and then finally plug
+    # in the numbers to calculate the value.
+    #
+    # converting all the formulas to modulos:
+    #
+    # new stack (reverse): (-idx - 1) % size
+    # cut: (idx - point) % size
+    # deal (with increment): (idx * pow(increment, -1, size)) % size
+    #
+    # then we want to produce a combined polynomial, aggregating
+    # values of A and B based on instructions (in reverse)
+    size = 119315717514047
+    a = 1
+    b = 0
+    for instruct in reversed(lines):
+        if instruct == NEW_STACK_INSTRUCT:
+            a = -a
+            b = size - b - 1
+        elif instruct.startswith(DEAL_INSTRUCT):
+            increment = int(instruct[len(DEAL_INSTRUCT):])
+            modi = pow(increment, size-2, size)
+            a = (a * modi) % size
+            b = (b * modi) % size
+        elif instruct.startswith(CUT_INSTRUCT):
+            point = int(instruct[len(CUT_INSTRUCT):])
+            b = (b + point) % size
+
+    # once we have the base polynomial values for a & b, we have
+    # to raise them to the number of steps.  this is done by
+    # a recursive function:
+    #
+    # f(x) = ax + b mod m
+    # g(x) = cx + d mod m
+    #
+    # g(f(x)) = c(ax + b) + d mod m
+    shuffle_times = 101741582076661
+    a, b = poly_to_power(a, b, shuffle_times, size)
+    return ((2020 * a) + b) % size
+
+def poly_to_power(a: int, b: int, count: int, size: int) -> tuple[int,int]:
+    """apply power to the supplied polynomial variables recursively"""
+    if count == 0:
+        return 1, 0
+    if count % 2 == 0:
+        return poly_to_power(a * a % size, (a*b+b) % size, count // 2, size)
+    c, d = poly_to_power(a, b, count-1, size)
+    return a * c % size, (a * d + b) % size
 
 NEW_STACK_INSTRUCT = "deal into new stack"
 DEAL_INSTRUCT = "deal with increment "
@@ -252,4 +307,4 @@ assert rshuffle_idx(sample4, 10, 0) == 9
 
 assert rshuffle_idx(data, 10007, 8502) == 2019
 
-assert solve_part2(data) == 0
+assert solve_part2(data) == 41685581334351
