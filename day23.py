@@ -9,32 +9,72 @@ def solve_part1(line: str) -> int:
     oc = parse_integers(line, ",")
     nics = {}
     computers = []
+    nat = NAT()
     for addr in range(50):
-        nics[addr] = IOProvider(addr, nics)
+        nics[addr] = IOProvider(addr, nics, nat)
         computers.append(Computer(oc, nics[addr]))
-    loops = 0
     while True:
         # run one command at a time per computer until done
-        loops += 1
-        if loops > 5000:
-            break
         for computer in computers:
             if computer.done:
                 continue
             computer.run_command()
-            if computer.io.sent_255 is not None:
-                return computer.io.sent_255[1]
-    return 0
+            if nat.packet is not None:
+                return nat.packet[1]
 
 @runner("Day 23", "Part 2")
 def solve_part2(line: str) -> int:
     """part 2 solving function"""
     oc = parse_integers(line, ",")
-    return 0
+    nics = {}
+    computers = []
+    nat = NAT()
+    for addr in range(50):
+        nics[addr] = IOProvider(addr, nics, nat)
+        computers.append(Computer(oc, nics[addr]))
+    while True:
+        # run one command at a time per computer until done
+        for computer in computers:
+            if computer.done:
+                continue
+            computer.run_command()
+            if nat.idle_state(computers):
+                done, duplicate = nat.resume_network(nics)
+                if done:
+                    return duplicate
+
+class NAT:
+    """structure for the NAT"""
+    def __init__(self):
+        self.packet = None
+        self.last = None
+
+    def idle_state(self, computers: list["Computer"]) -> bool:
+        """determine if all computers are idle"""
+        for computer in computers:
+            if computer.io.idle_requests < 50:
+                return False
+        return True
+
+    def receive_packet(self, x: int, y: int):
+        """receive a packate"""
+        self.packet = (x, y)
+
+    def resume_network(self, nics: dict[int,"IOProvider"]) -> tuple[bool,int]:
+        """resume the network"""
+        if self.packet is None:
+            return False, 0
+        if self.last is not None and self.packet[1] == self.last[1]:
+            return True, self.packet[1]
+        #print(f"resuming network with {self.packet}")
+        nics[0].receive_packet(self.packet[0], self.packet[1])
+        self.last = self.packet
+        self.packet = None
+        return False, 0
 
 class IOProvider:
     """structure for robot"""
-    def __init__(self, address: int, nics: dict[int,Self]):
+    def __init__(self, address: int, nics: dict[int,Self], nat: NAT):
         self.address = address
         self.nics = nics
         self.queue = []
@@ -42,7 +82,9 @@ class IOProvider:
         self.packet = None
         self.pidx = None
         self.output_queue = []
+        self.idle_requests = 0
         self.sent_255 = None
+        self.nat = nat
 
     def receive_packet(self, x: int, y: int) -> None:
         """receive packet"""
@@ -54,7 +96,9 @@ class IOProvider:
             self.packet = self.queue.pop()
             self.pidx = 0
         if self.packet is None:
+            self.idle_requests += 1
             return -1
+        self.idle_requests = 0
         p = self.packet[self.pidx]
         self.pidx += 1
         if self.pidx == len(self.packet):
@@ -69,8 +113,8 @@ class IOProvider:
         if len(self.output_queue) == 3:
             #print(f"sending output: {self.output_queue}")
             if self.output_queue[0] == 255:
-                self.sent_255 = self.output_queue[1:]
-            if self.output_queue[0] in self.nics:
+                self.nat.receive_packet(self.output_queue[1], self.output_queue[2])
+            elif self.output_queue[0] in self.nics:
                 nic = self.nics[self.output_queue[0]]
                 nic.receive_packet(self.output_queue[1], self.output_queue[2])
             self.output_queue = []
@@ -184,4 +228,4 @@ data = read_lines("input/day23/input.txt")[0]
 assert solve_part1(data) == 22074
 
 # Part 2
-assert solve_part2(data) == 0
+assert solve_part2(data) == 14257
