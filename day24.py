@@ -22,20 +22,22 @@ def solve_part2(lines: list[str], minutes: int):
     bugs = parse_input(lines, True)
     min_depth = 0
     max_depth = 0
-    for m in range(minutes):
+    for _ in range(minutes):
         bugs, min_depth, max_depth = rnext_bug_state(bugs, min_depth, max_depth)
-        print(f"after minute {m+1}: min_depth = {min_depth}, max_depth = {max_depth}")
-        for d in range(min_depth, max_depth+1):
-            print(f"Depth {d}")
-            for y in range(5):
-                line = ""
-                for x in range(5):
-                    if (d,x,y) in bugs:
-                        line += '#'
-                    else:
-                        line += '.'
-                print(line)
-            print("")
+        #print(f"after minute {m+1}: min_depth = {min_depth}, max_depth = {max_depth}")
+        #for d in range(min_depth, max_depth+1):
+        #    print(f"Depth {d}")
+        #    for y in range(5):
+        #        line = ""
+        #        for x in range(5):
+        #            if (x,y) == (2,2):
+        #                line += '?'
+        #            elif (d,x,y) in bugs:
+        #                line += '#'
+        #            else:
+        #                line += '.'
+        #        print(line)
+        #    print("")
     return len(bugs)
 
 def biodiversity(bugs: set[tuple[int,int]]) -> int:
@@ -77,7 +79,7 @@ RMOVES = {
     (4,0): [(-1,2,1),(-1,3,2),(0,4,1),(0,3,0)], #5!
 
     (0,1): [(0,0,0),(0,1,1),(0,0,2),(-1,1,2)], #6!
-    (1,1): [(0,1,0),(0,2,1),(0,1,3),(0,0,1)], #7!
+    (1,1): [(0,1,0),(0,2,1),(0,1,2),(0,0,1)], #7!
     (2,1): [(0,2,0),(0,3,1),(1,0,0),(1,1,0),(1,2,0),(1,3,0),(1,4,0),(0,1,1)], #8!
     (3,1): [(0,3,0),(0,4,1),(0,3,2),(0,2,1)], #9!
     (4,1): [(0,4,0),(-1,3,2),(0,4,2),(0,3,1)], #10!
@@ -156,4 +158,4 @@ assert solve_part1(data) == 18371095
 
 # Part 2
 assert solve_part2(sample, 10) == 99
-assert solve_part2(data, 200) == 0
+assert solve_part2(data, 200) == 2075
