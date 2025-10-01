@@ -1,10 +1,11 @@
 """utility imports"""
+import math
 import re
 from utilities.data import read_lines
 from utilities.runner import runner
 
 @runner("Day 12", "Part 1")
-def solve_part1(lines: list[str], steps: int):
+def solve_part1(lines: list[str], steps: int) -> int:
     """part 1 solving function"""
     moons = parse_moons(lines)
     for _ in range(steps):
@@ -17,34 +18,52 @@ def solve_part1(lines: list[str], steps: int):
     return total_energy
 
 @runner("Day 12", "Part 2")
-def solve_part2(lines: list[str], steps):
+def solve_part2(lines: list[str]) -> int:
     """part 2 solving function"""
     moons = parse_moons(lines)
-    mt = 3
-    max_state = moons[mt].state()
-    moon_states = {max_state:0}
-    mss = {max_state:[0]}
-    mssc = 1
-    for s in range(steps):
+    orig_state = [[moon.axis_state(axis) for axis in range(3)] for moon in moons]
+    # track and record the individual cycles of each moon/axis until
+    # we have found all of them
+    cycles = [[None, None, None] for _ in range(len(moons))]
+    candidates = [[[],[],[]] for _ in range(len(moons))]
+    steps = 0
+    done = False
+    while not done:
+        steps += 1
         g = [moon.gravity_impact(moons) for moon in moons]
+        done = True
         for i, moon in enumerate(moons):
             moon.apply_gravity(g[i])
             moon.apply_velocity()
-            state = moon.state()
-            if i == mt:
-                if state in moon_states:
-                    ss = mss[state]
-                    if len(ss) + 1 > mssc:
-                        mssc += 1
-                        max_state = state
-                    ss.append(s+1)
-                    mss[state] = ss
-                    #print(f"repeat state: {state}, step: {s+1}, orig: {moon_states[state]}")
-                else:
-                    moon_states[state] = s+1
-                    mss[state] = [s+1]
-    print(f"max repeating state, {max_state}, repeated {mssc} times, {mss[max_state]}")
-    return 0
+            for axis in range(3):
+                if cycles[i][axis] is None:
+                    equal = moon.axis_state(axis) == orig_state[i][axis]
+                    c = track_cycle(steps, equal, candidates[i][axis])
+                    if c is not None:
+                        cycles[i][axis] = c
+                    else:
+                        done = False
+    # once we have all cycle, determine the least common multiple of
+    # each of the cycle values to determine the overall step at which
+    # the universe will repeat
+    cycle_steps = {s for c in cycles for s in c}
+    return math.lcm(*cycle_steps)
+
+def track_cycle(steps: int, equal: bool, candidates: list[int]) -> int:
+    """track and verify cycle values"""
+    cycle_match = False
+    for c in list(candidates):
+        if steps % c == 0:
+            cycle_match = True
+            if equal:
+                # verified cycle, use as the cycle value for this point
+                return c
+            # not equal, means, while it did match at one point,
+            # this step count is not representing a cycle
+            candidates.remove(c)
+    if equal and not cycle_match:
+        candidates.append(steps)
+    return None
 
 class Moon:
     """moon structure"""
@@ -58,6 +77,10 @@ class Moon:
     def state(self) -> tuple[tuple[int,int,int],tuple[int,int,int]]:
         """state of the moon"""
         return (self.position, self.velocity)
+
+    def axis_state(self, axis: int) -> tuple[int,int]:
+        """axis state of the moon"""
+        return (self.position[axis], self.velocity[axis])
 
     def gravity_impact(self, moons: list) -> tuple[int,int,int]:
         """calculate current gravitational impact"""
@@ -118,5 +141,6 @@ assert solve_part1(sample2, 100) == 1940
 assert solve_part1(data, 1000) == 9139
 
 # Part 2
-assert solve_part2(sample2, 1000000) == 1
-assert solve_part2(data, 1000) == 0
+assert solve_part2(sample) == 2772
+assert solve_part2(sample2) == 4686774924
+assert solve_part2(data) == 420788524631496
